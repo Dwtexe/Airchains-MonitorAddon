@@ -16,7 +16,7 @@ AirchainsMonitor, Airchains ağ düğümünü izlemek ve bakımını yapmak içi
 
 ## Eklediğim RPC linkleri
 - RPC linklerini artık 
-    URL1="https://testnet-files.bonynode.online/airchains/.rpc_combined.json"
+    URL1="https://testnet-files.bonynode.online/airchains/.rpc_combined.json"\
     URL2="https://api.nodejumper.io/api/v1/airchainstestnet/rpcs"
   bu iki linkten çekip en hızlısını kullanacak şekilde ayarladım.
 
