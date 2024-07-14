@@ -12,9 +12,32 @@ declare -A colors=(
     ["NC"]='\033[0m' # No Color
 )
 
-# URLs of the JSON files
+# URLs of the JSON files and additional RPC URLs
 URL1="https://testnet-files.bonynode.online/airchains/.rpc_combined.json"
 URL2="https://api.nodejumper.io/api/v1/airchainstestnet/rpcs"
+ADDITIONAL_RPCS=(
+    "https://airchains-rpc.sbgid.com/"
+    "https://airchains-rpc.tws.im/"
+    "https://junction-testnet-rpc.synergynodes.com/" 
+    "https://airchains-testnet-rpc.nodesrun.xyz/"
+    "https://t-airchains.rpc.utsa.tech/"
+    "https://airchains-testnet.rpc.stakevillage.net/"
+    "https://airchains-rpc.elessarnodes.xyz/"
+    "https://rpc.airchains.aknodes.net"
+    "https://rpcair.aznope.com/"
+    "https://rpc1.airchains.t.cosmostaking.com/"
+    "https://rpc.nodejumper.io/airchainstestnet"
+    "https://airchains-testnet-rpc.staketab.org"
+    "https://junction-rpc.kzvn.xyz/"
+    "https://airchains-rpc-testnet.zulnaaa.com/"
+    "https://airchains-testnet-rpc.suntzu.dev/"
+    "https://airchains-testnet-rpc.nodesphere.net/"
+    "https://junction-rpc.validatorvn.com/"
+    "https://rpc-testnet-airchains.nodeist.net/"
+    "https://airchains-rpc.kubenode.xyz/"
+    "https://airchains-testnet-rpc.cosmonautstakes.com/"
+    "https://airchains-testnet-rpc.itrocket.net/"
+)
 
 # Global variable to store the last restart time
 LAST_RESTART_TIME=$(date +%s)
@@ -51,12 +74,12 @@ display_banner() {
     echo
 }
 
-
 fetch_and_filter_rpcs() {
-    # Fetch and combine data from both URLs
+    # Fetch and combine data from both URLs and additional RPCs
     combined_ips=$(
         (curl -s "$URL1" | jq -r 'to_entries[] | select(.value.tx_index == "on") | .key';
-         curl -s "$URL2" | jq -r '.[] | select(.tx_index == true) | .ip') | sort | uniq
+         curl -s "$URL2" | jq -r '.[] | select(.tx_index == true) | .ip';
+         printf '%s\n' "${ADDITIONAL_RPCS[@]}") | sort | uniq
     )
 
     # Process combined and deduplicated IPs
@@ -83,7 +106,7 @@ fetch_and_filter_rpcs() {
         if [ "$status_code" -ge 200 ] && [ "$status_code" -lt 400 ]; then
             rpc_response_times["${protocol}://${ip}"]=$response_time
         else
-            echo
+            :
         fi
     done <<< "$combined_ips"
 
@@ -123,13 +146,17 @@ restart_service() {
     sudo journalctl --rotate > /dev/null 2>&1
     sudo journalctl --vacuum-time=1s > /dev/null 2>&1
     sudo find /var/log/journal -name "*.journal" | xargs sudo rm -rf
-    sudo systemctl restart systemd-journald > /dev/null 2>&1
+    cecho "YELLOW" "=> Restarting systemd-journald service..."
+    sudo systemctl restart systemd-journald
+    cecho "YELLOW" "=> Removing unnecessary files to save space"
+    sudo rm -rf /tmp/go-build* /tmp/go-link-* /tmp/snap-private-tmp 
     sleep 5
     
     cecho "YELLOW" "=> Restarting stationd service..."
     sudo systemctl restart rolld
     sudo systemctl daemon-reload
     sudo systemctl restart stationd > /dev/null 2>&1
+
     cecho "GREEN" "=> Successfully restarted stationd service"
     
     # Update the last restart time
@@ -137,11 +164,11 @@ restart_service() {
 }
 
 changeRPC() {
-	fetch_and_filter_rpcs
-	
+    fetch_and_filter_rpcs
+    
     local old_rpc_endpoint=$(grep 'JunctionRPC' ~/.tracks/config/sequencer.toml | cut -d'"' -f2)
     local new_rpc_endpoint="${RPC_ENDPOINTS[0]}"  # Always use the fastest RPC
-	
+    
     sed -i "s|JunctionRPC = \".*\"|JunctionRPC = \"$new_rpc_endpoint\"|" ~/.tracks/config/sequencer.toml
 
     cecho "GREEN" "=> Successfully updated JunctionRPC from $old_rpc_endpoint to: $new_rpc_endpoint"
@@ -157,7 +184,7 @@ process_log_line() {
 
     # Check if an hour has passed since the last restart
     local current_time=$(date +%s)
-    if (( current_time - LAST_RESTART_TIME >= 3600 )); then
+    if (( current_time - LAST_RESTART_TIME >= 2700 )); then
         cecho "YELLOW" "An hour has passed. Restarting service..."
         changeRPC
     fi
